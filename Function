@@ -1,0 +1,58 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Net.Http;
+using Newtonsoft.Json;
+using Amazon.Lambda.APIGatewayEvents;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+
+using Amazon.Lambda.Core;
+using System.Dynamic;
+
+// Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
+
+namespace FinalAssign
+{
+    [Serializable]
+    class Word
+    {
+        public string id;
+        public string shortDef;
+    }
+    public class Function
+    {
+        public static readonly HttpClient client = new HttpClient();
+        private static AmazonDynamoDBClient databaseClient = new AmazonDynamoDBClient();
+        //define what table name trying to access
+        private string tableName = "WordStorage";
+
+        public async Task<ExpandoObject> FunctionHandler(APIGatewayProxyRequest input, ILambdaContext context)
+        {
+            string test = "test";
+
+            //create dictionary 
+            Dictionary<string, string> myDict = (Dictionary<string, string>)input.QueryStringParameters;
+            //create string to hold url and the api keys will pull the json 
+            string myURL = await client.GetStringAsync("https://www.dictionaryapi.com/api/v3/references/collegiate/json/" + myDict.First().Value + "?key=f9121425-fc6f-4880-8e1e-8d8ca1d4f98d");
+            //store deserialized object
+            dynamic myObjects = JsonConvert.DeserializeObject<List<ExpandoObject>>(myURL);
+            //create a dictionary to add to database
+            Dictionary<string, AttributeValue> myDictonary = new Dictionary<string, AttributeValue>();
+
+            //need to get stirng
+            //test = myURL.LastIndexOf
+
+            //add the items to the dictonary 
+            myDictonary.Add("id", new AttributeValue() { S = myDict.First().Value });
+            myDictonary.Add("shortdef", new AttributeValue() {S = test});
+            //put items in the database
+            PutItemRequest myRequest = new PutItemRequest(tableName, myDictonary);
+            PutItemResponse res = await databaseClient.PutItemAsync(myRequest);
+
+            return myObjects[0];
+        }
+    }
+}

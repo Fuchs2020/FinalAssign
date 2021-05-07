@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Amazon.Lambda.APIGatewayEvents;
+using Amazon.Lambda.Core;
+using Newtonsoft.Json;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using Amazon.DynamoDBv2.DocumentModel;
+
+
+// Assembly attribute to enable the Lambda functions JSON input to be converted into a .NET class.
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
+
+namespace LastAssignPart2
+{
+    public class Quote
+    {
+        public string id;
+        public string quote;
+    }
+    public class Function
+    {
+
+        //define database funciton
+        private static AmazonDynamoDBClient client = new AmazonDynamoDBClient();
+        //define what table name trying to access
+        private string tableName = "KanyeQuote";
+
+        public async Task<Quote> FunctionHandler(APIGatewayProxyRequest input, ILambdaContext context)
+        {
+            //to hold id
+            string id = "";
+
+            //create a dictionary for query string paramateres
+            Dictionary<string, string> myDictionary = (Dictionary<string, string>)input.QueryStringParameters;
+
+            //if you get the id assign it to the string id
+            myDictionary.TryGetValue(myDictionary.First().Key, out id);
+
+            //wait for my request to finish
+            GetItemResponse res = await client.GetItemAsync(tableName, new Dictionary<string, AttributeValue>
+            {
+                { myDictionary.First().Key, new AttributeValue { S = id } }
+            }
+                );
+            //document model
+            Document myDoc = Document.FromAttributeMap(res.Item);
+            Quote myInput = JsonConvert.DeserializeObject<Quote>(myDoc.ToJson());
+            return myInput;
+        }
+    }
+}
